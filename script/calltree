@@ -1,0 +1,257 @@
+#!perl
+
+use 5.006;
+use strict;
+use Getopt::Long;
+use Pod::Usage;
+
+use vars qw($VERSION);
+$VERSION = '0.00_1';
+
+
+my (@EXCLUDE,       # exclude these packages
+    @INCLUDE,       # but always include these
+    @ISCALLED,      # are these functions called at all?
+    $NOEMPTY,       # do not include subs that do not call other subs
+    $CALLTREEOPTS,  # options passed to Devel::Calltree
+    @PERLLIBS,
+    $CODE,
+    @INC,
+    @PERLOPTS,
+    $SCRIPT,
+);
+
+pod2usage(-verbose => 1, -exitvalue => 2) if !@ARGV;
+
+# FIXME this is not the best solution
+my $INTERPRETER = $^X;  
+
+Getopt::Long::Configure ("bundling");
+
+GetOptions( 'exclude|x=s'   => sub { push @EXCLUDE, split /,/, $_[1] },
+            'include|i=s'   => sub { push @INCLUDE, split /,/, $_[1] },
+            'chkfunc|c=s'   => sub { push @ISCALLED, split /,/, $_[1] },
+            'noempty|n'     => \$NOEMPTY,
+            'module|M|m=s'  => \@PERLLIBS,
+            'e=s'           => \$CODE,
+            'I=s'           => \@INC,
+            'help|h'        => sub { pod2usage(-verbose => 1, -exitvalue => 0) },
+        );
+
+($SCRIPT, @PERLOPTS) = build_perlops();
+
+if (@EXCLUDE || @INCLUDE and @ISCALLED) {
+    pod2usage( -message => "Error: You must not use --chkfunc together with --include or --exclude\n",
+               -verbose => 1,
+               -exitval => 2,);
+
+}
+
+$CALLTREEOPTS = qq/-MDevel::Calltree/;
+
+# I suspect the following lines are highly unportable
+if (@EXCLUDE) {
+    my $pat = 'q\!' . join('\!,q\!', @EXCLUDE) . '\!';
+    $CALLTREEOPTS .= qq/\\ -exclude=\\>[$pat],/;
+}
+if (@INCLUDE) {
+    my $pat = 'q\!' . join('\!,q\!',@INCLUDE) . '\!';
+    $CALLTREEOPTS .= qq/-include=\\>[$pat],/;
+}
+if ($NOEMPTY) {
+    $CALLTREEOPTS .= qq/\\ -filter_empty=\\>1,/;
+} else {
+    $CALLTREEOPTS .= qq/\\ -filter_empty=\\>0,/;
+}
+if (@ISCALLED) {
+    my $pat = 'q\!' . join('\!,q\!', @ISCALLED) . '\!';
+    $CALLTREEOPTS .= qq/\\ -iscalled=\\>[$pat],/;
+}
+
+if (!$CODE) {
+    if (!$SCRIPT) {
+        $CODE = 1;  # simplest possible script
+    } else {
+        local *S;
+        open S, "<$SCRIPT" or 
+            pod2usage( -message => "Error: '$SCRIPT' could not be opened: $!\n",
+                       -verbose => 1,
+                       -exitval => 2, );
+        $CODE = do { local $/; <S> };
+        close S;
+    }
+}
+
+open PERL, "| $INTERPRETER $CALLTREEOPTS @PERLOPTS"
+    or die "Could not execute $INTERPRETER: $!";
+print PERL $CODE;
+close PERL;
+
+sub build_perlops {
+    my $script = shift @ARGV;
+    my @opts = map "-I$_", @INC;
+    if (!$ENV{PERL5LIB}) {
+        push @opts, map "-I$_", split /:/, $ENV{ PERLLIB };
+    } else {
+        push @opts, map "-I$_", split /:/, $ENV{ PERL5LIB };
+    }
+    push @opts, map "-M$_", @PERLLIBS;
+    return ($script, @opts);
+}
+    
+__END__
+
+=head1 NAME
+
+calltree - Who called whom
+
+=head1 SYNOPSIS
+
+    calltree    --exclude=<pkg1>...<pkgN> --include=<pkg3>...<pkgQ>
+                --noempty
+                [ -Iinc/path1 -Iinc/path2 -I...] [ -Mmodule1 -Mmodule2 -M...]
+                [ -e <CODE> | script.pl ]
+
+    calltree    --chkfunc=<fnc1>...<funcN>
+                [ -Iinc/path1 -Iinc/path2 -M...] [ -Mmodule1 -Mmodule2 -M...]
+                [ -e <CODE> | script.pl ]
+
+=head1 OPTIONS
+
+=over 4
+
+=item * B<--exclude>
+
+A comma-separated list of regular expressions. Functions matching any of the
+expressions are excluded from the report.
+
+=item * B<--include>
+
+A comma-separated list of regular expressions. Functions matching any of the
+expressions are always included from the report (even when they match one
+in I<--exclude>.
+
+=item * B<--chkfunc>
+
+A comma-separated list of regular expressions. All functions matching one of
+the expression are checked whether they are called at all. This function cannot
+be used together with I<--exclude> or I<--include>.
+
+=item * B<--noempty>
+
+Exclude functions from the generated report that do not call any other
+functions.
+
+=item * B<-I>path
+
+The same as perl's I<-I>. This is used to add directories to @INC.
+
+=item * B<-M>module
+
+The same as perl's I<-M>. This runs the code after C<use>ing the module
+I<module>. Can be used to print the calltree of a module:
+
+    calltree -MMy::Module
+
+=item * B<-e> 'CODE'
+
+The same as perl's I<-e>. This is used to pass the code that shall be inspected.
+
+=back
+
+=head1 DESCRIPTION
+
+F<calltree> inspects the OP-tree of a program or module after compilation is
+done and creates a report showing which method and function has been called by
+whom.
+
+Output is pretty straightforward. When not using the I<--chkfunc> switch, it
+looks like this:
+
+    Package::func  (/path/to/Package.pm)
+      method   'some_method'                                      (68)
+      function 'Pkg::function'                                    (70)
+      
+    Package::nest::otherfunc  (/path/to/Package/nest.pm)
+      method   'foobar'                                           (10)
+    
+    ...
+
+    __MAIN__ (-)
+      function 'Package::func::func'                              (3)
+
+It begins with the fully qualified function followed by the path to the file in
+which this function resides. After that a list of function and method calls
+follows. The line where this call happens is prepended.
+
+The last in the list is always B<__MAIN__> which is the report for what happens
+in package main. This doesn't necessarily exist (e.g. when you only inspect a
+module).
+
+In I<--chkfunc> mode, output looks like this:
+
+    calltree --chkfunc=foo,bar -e 'sub foo {1} print foo()'
+    These patterns did not match any called function:
+      bar
+
+    These functions were called:
+      function main::foo        from __MAIN__           at line 1
+
+=head1 EXAMPLES
+
+See the calltree of a script:
+
+    calltree script.pl
+
+Or one of a script given on the command-line:
+
+    calltree -e '...'
+
+See the calltree of the module URI:
+
+    calltree -MURI
+
+The same, but skip empty functions (those that do not make calls to others):
+
+    calltree --noempty -MURI
+
+The same, but ignore functions not in the URI:: namespace:
+
+    calltree --noempty --exclude=. --include=URI:: -MURI
+
+Thus, use I<--exclude=.> to exclude everything and then include only functions
+from the URI:: namespace with I<--include=URI::>.
+
+And finally check whether a particular function is called at all:
+
+    calltree --chkfunc=Carp::croak -MURI
+
+=head1 ENVIRONMENT VARIABLES
+
+F<calltree> uses C<PERLLIB> and C<PERL5LIB> in a similar fashion as perl does.
+
+=head1 TODO
+
+=over 4
+
+=item * Add a count for function calls
+
+=item * Better control over I<--chkfunc> (packages can't currently be excluded)
+
+=item * ...
+
+=head1 AUTHOR
+
+Original idea and code by Mark Jason Dominus E<lt>mjd@plover.comE<gt>.
+
+Current maintainer Tassilo von Parseval E<lt>tassilo.parseval@post.rwth-aachen.deE<gt>.
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2004 by Tassilo von Parseval
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself, either Perl version 5.8.2 or,
+at your option, any later version of Perl 5 you may have available.
+
+=cut

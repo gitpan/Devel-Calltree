@@ -1,0 +1,34 @@
+Devel-Calltree version 0.00_1
+=============================
+
+This module can be used during development to get some code-coverage metrics.
+Unlike modules such as Devel::Cover, this module does not run any code. It only
+looks at the OP-tree of your script or module.
+
+As you may guess from the version number, this is still beta (alpha actually, 
+as some features aren't yet implemented).
+
+INSTALLATION
+
+To install this module type the following:
+
+   perl Makefile.PL
+   make
+   make test
+   make install
+
+DEPENDENCIES
+
+This module requires these other modules and libraries:
+
+  B::Utils
+
+COPYRIGHT AND LICENCE
+
+Copyright (C) 2004 by Tassilo von Parseval
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself, either Perl version 5.8.2 or,
+at your option, any later version of Perl 5 you may have available.
+
+

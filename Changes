@@ -1,0 +1,6 @@
+Revision history for Perl extension Devel::Calltree.
+
+0.00_1  Mon Jan 26 09:58:32 2004
+	- original version; created by h2xs 1.23 with options
+		-b 5.5.3 -XA -n Devel::Calltree
+

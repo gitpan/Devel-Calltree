@@ -11,5 +11,5 @@ WriteMakefile(
     ($] >= 5.005 ?     
       (ABSTRACT_FROM  => 'lib/Devel/Calltree.pm', 
        AUTHOR         => 'Tassilo von Parseval <tassilo.parseval@post.rwth-aachen.de>') : ()),
-    clean             => { FILES => 't/calltree.out' },
+    clean             => { FILES => 't/calltree.out t/calltree_rf.out' },
 );

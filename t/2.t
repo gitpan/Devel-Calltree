@@ -1,17 +1,17 @@
 use Test;
 use File::Spec;
 
-BEGIN { plan tests => 1 }
+# writing tests for a module running at CHECK-time is somewhat tricky
+# this test-script always succeeds. It creates a calltree in a file
+# and checks in 2.t that the file is identical to a reference calltree
 
-local *A;
-local *B;
+BEGIN { 
+    plan tests => 1;
+    ok(1);
+};
+use Devel::Calltree -exclude	    => [ '.' ], 
+                    -include	    => [ "Devel::Calltree" ],
+                    -output	    => File::Spec->catfile("t", "calltree_rf.out"),
+                    -test	    => 1,
+		    -reportfuncs    => File::Spec->catfile("t", "report_funcs.pl");
 
-open A, File::Spec->catfile("t", "calltree.out") or ok(0), exit;
-open B, File::Spec->catfile("t", "calltree.ref") or ok(0), exit;
-
-# by using default input record separator, perl will hopefully do the necessary
-# newline translations on platforms not using "\012"
-my @a = <A>;
-my @b = <B>;
-
-ok(1) if join('', @a) eq join('', @b);

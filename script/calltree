@@ -6,7 +6,7 @@ use Getopt::Long;
 use Pod::Usage;
 
 use vars qw($VERSION);
-$VERSION = '0.00_2';
+$VERSION = '0.00_3';
 
 
 my (@EXCLUDE,       # exclude these packages
@@ -19,6 +19,7 @@ my (@EXCLUDE,       # exclude these packages
     @INC,
     @PERLOPTS,
     $SCRIPT,
+    $REPORTFUNCS,
 );
 
 pod2usage(-verbose => 1, -exitvalue => 2) if !@ARGV;
@@ -28,14 +29,16 @@ my $INTERPRETER = $^X;
 
 Getopt::Long::Configure ("bundling");
 
-GetOptions( 'exclude|x=s'   => sub { push @EXCLUDE, split /,/, $_[1] },
-            'include|i=s'   => sub { push @INCLUDE, split /,/, $_[1] },
-            'chkfunc|c=s'   => sub { push @ISCALLED, split /,/, $_[1] },
-            'noempty|n'     => \$NOEMPTY,
-            'module|M|m=s'  => \@PERLLIBS,
-            'e=s'           => \$CODE,
-            'I=s'           => \@INC,
-            'help|h'        => sub { pod2usage(-verbose => 1, -exitvalue => 0) },
+GetOptions( 'exclude|x=s'	    => sub { push @EXCLUDE, split /,/, $_[1] },
+            'include|i=s'	    => sub { push @INCLUDE, split /,/, $_[1] },
+            'chkfunc|c=s'	    => sub { push @ISCALLED, split /,/, $_[1] },
+            'noempty|n'		    => \$NOEMPTY,
+            'module|M|m=s'	    => \@PERLLIBS,
+            'e=s'		    => \$CODE,
+            'I=s'		    => \@INC,
+            'help|h'		    => sub { pod2usage(-verbose => 1, -exitvalue => 0) },
+	    'version|v'		    => sub { print "calltree $VERSION\n"; exit 0 },
+	    'reportfunc|r=s'	    => \$REPORTFUNCS,
         );
 
 ($SCRIPT, @PERLOPTS) = build_perlops();
@@ -66,6 +69,9 @@ if ($NOEMPTY) {
 if (@ISCALLED) {
     my $pat = 'q\!' . join('\!,q\!', @ISCALLED) . '\!';
     $CALLTREEOPTS .= qq/\\ -iscalled=\\>[$pat],/;
+}
+if ($REPORTFUNCS) {
+    $CALLTREEOPTS .= qq/\\ -reportfuncs=\\>\\"$REPORTFUNCS\\",/;
 }
 
 if (!$CODE) {
@@ -109,6 +115,7 @@ calltree - Who called whom
 
     calltree    --exclude=<pkg1>...<pkgN> --include=<pkg3>...<pkgQ>
                 --noempty
+		[ --reportfunc file ]
                 [ -Iinc/path1 -Iinc/path2 -I...] [ -Mmodule1 -Mmodule2 -M...]
                 [ -e <CODE> | script.pl ]
 
@@ -120,18 +127,18 @@ calltree - Who called whom
 
 =over 4
 
-=item * B<--exclude>
+=item * B<--exclude> LIST
 
 A comma-separated list of regular expressions. Functions matching any of the
 expressions are excluded from the report.
 
-=item * B<--include>
+=item * B<--include> LIST
 
 A comma-separated list of regular expressions. Functions matching any of the
 expressions are always included from the report (even when they match one
 in I<--exclude>.
 
-=item * B<--chkfunc>
+=item * B<--chkfunc> LIST
 
 A comma-separated list of regular expressions. All functions matching one of
 the expression are checked whether they are called at all. This function cannot
@@ -141,6 +148,11 @@ be used together with I<--exclude> or I<--include>.
 
 Exclude functions from the generated report that do not call any other
 functions.
+
+=item * B<--reportfunc> FILE
+
+Load FILE and use the function 'Devel::Calltree::print_report' defined therein
+to create the report instead of the built-in report functions.
 
 =item * B<-I>path
 
@@ -199,7 +211,131 @@ In I<--chkfunc> mode, output looks like this:
 
 =head1 PROVIDING YOUR OWN REPORT FUNCTIONS
 
-Not yet.
+With the help of the I<--reportfunc> switch, you can tell F<calltree> to use a different
+function for outputting the report. The argument to this switch must be a file that contains
+the function C<Devel::Calltree::print_report>. The file itself must additionally return a true
+value.
+
+A skeleton of this file therefore must look like this:
+
+    sub Devel::Calltree::print_report {
+	...
+    }
+    
+    "MJD kindly reminded calltree's author of putting in this feature";
+
+=head2 Devel::Calltree::print_report
+
+This function will receive exactly one argument, namely a hash-reference which is additionally
+blessed in some fancy way. The keys of this hash are the various functions that F<calltree> was
+able to find in your code. The value is an array-reference holding C<Devel::Calltree::Func> objects
+where each object represents exactly one call to a function or method that was done from within
+the given function.
+
+The hash-reference passed to C<Devel::Calltree::print_report> overloads the C<@{}> operator. That means
+that in order to iterate over all functions in your program, you can simply write:
+
+    sub Devel::Calltree::print_report {
+	my $calls = shift;
+	for my $func (@$calls) {
+	    print $func, "\n";
+	    ...
+	}
+    }
+
+This is often more convenient than writing
+
+    for my $func (keys %$calls) {
+
+because C<@$calls> will return the list of functions sorted by package and then by function names.
+
+Now that you are iterating over all exiting functions, you want to look at what
+is called from each function. To get the list of these method/function calls:
+
+    for my $func (@$calls) {
+	my @called = funcs($calls->{ $func });
+	...
+    }
+
+where now C<@called> contains the list of C<Devel::Calltree::Func> objects. The list returned
+by C<funcs()> has the same order in which the function/method calls were done. That means they
+are sorted by line-number.
+
+Additionally, there's a C<file()> function that returns the filename where the current function
+resides in.
+
+    for my $func (@$calls) {
+	print "$func lives in ", file($calls->{ $func });
+	...
+    }
+
+Here's a list of methods you can use on each C<Devel::Calltree::Func> object:
+
+=over 4
+
+=item * B<name>
+
+Returns the name of the function/method. If it is a function, the name is fully package-qualified.
+Otherwise it is just the name without the package (there is no easy way to package-qualify a method
+call at INIT-time).
+
+=item * B<line>
+
+Returns the linenumber where this function/method was called.
+
+=item * B<file>
+
+Returns the name of the file in which this function was called.
+
+=item * B<is_method>
+
+Returns a true value when this function is in fact a method.
+
+=back
+
+Here is an example how a complete report function should look like. This function is in fact producing
+the same output as the built-in report function:
+
+    sub print_report {
+	my $calls = shift;
+	for my $caller (@$calls) {
+	    my $file = file($calls->{ $caller });
+	    if (funcs($calls->{$caller}) || !$OPT{-filter_empty} ) {
+		print "\n$caller  ($file): \n";
+		for my $targ (funcs($calls->{$caller})) {
+		    my $n = $targ->name;
+		    my $l = $targ->line;
+		    if ($targ->is_method) {
+			print "  method   '$n'", ' ' x (60 - 14 - length($n)), " ($l)\n"; 
+			next;
+		    }
+		    print "  function '$n'", ' ' x (60 - 14 - length($n)), " ($l)\n";
+		}
+	    }
+	}
+    }
+
+C<%OPT> holds the arguments which F<calltree> passed on to the underlying module:
+
+=over 4
+
+=item * B<-exclude>
+
+The list of regular expressions passed to F<calltree> through the I<--exclude> switch.
+
+=item * B<-include>
+
+The list of regular expressions passed to F<calltree> through the I<--include> switch.
+
+=item * B<-filter_empty>
+
+Is true when I<--noempty> was passed to F<calltree>.
+
+=item * B<-iscalled>
+
+The list of regular expressions passed to F<calltree> through the I<--chkfunc> switch.
+
+=back
 
 =head1 EXAMPLES
 
@@ -242,7 +378,7 @@ F<calltree> uses C<PERLLIB> and C<PERL5LIB> in a similar fashion as perl does.
 
 =item * Better control over I<--chkfunc> (packages can't currently be excluded)
 
-=item * ...
+=item * Fix some fatal runtime errors that appear to happen sometimes on defined but uncalled functions
 
 =head1 AUTHOR
 

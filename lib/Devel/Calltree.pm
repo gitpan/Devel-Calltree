@@ -6,10 +6,20 @@ use strict;
 use vars qw($VERSION);
 use B::Utils; 
 
-$VERSION = '0.00_2';
+$VERSION = '0.00_3';
 
-my %OPT;
+our %OPT;
 my $CURFILE;
+
+use overload '@{}' =>
+    sub { 
+	my $calls = shift;
+	# the outer map() will turn __MAIN__ into 'z' x 100 in the hope
+	# that this will put '__MAIN__' at the end of the list
+	[   map $_->[0],
+	    sort { $a->[1] cmp $b->[1] or $a->[2] cmp $b->[2] }
+	    map [ $_, $_ ne '__MAIN__' ? /(.+)::(.+)/ : 'z' x 100 ], keys %$calls   ];
+    };
 
 sub import {
     my $class = shift;
@@ -27,6 +37,7 @@ sub import {
     # in order to get consistent output, $CURFILE will
     # be tied so that it always return 'XXX'.
     tie $CURFILE => "Devel::Calltree::testmode" if $OPT{-test};
+    setup_reportfuncs($OPT{ -reportfuncs });
 }
 
 sub INIT {
@@ -34,7 +45,7 @@ sub INIT {
     my %root = B::Utils::all_roots();
     remove_excluded(\%root);
     my @pkgs = get_packages(\%root);
-
+	
     my %CALLS;
     while (my ($name, $root) = each %root) {
         my ($pkg) = $name =~ /(.*)::/; 
@@ -105,16 +116,11 @@ sub find_subcall {
 
 sub print_report {
     my $calls = shift;
-    # the outer map() will turn __MAIN__ into 'z' x 100 in the hope
-    # that this will put '__MAIN__' at the end of the list
-    for my $caller (map $_->[0],
-                    sort { $a->[1] cmp $b->[1] or $a->[2] cmp $b->[2] }
-                    map [ $_, $_ ne '__MAIN__' ? /(.+)::(.+)/ : 'z' x 100 ], keys %$calls) {
-        my $file = ref $calls->{ $caller };
-        $file =~ tr#/##s; # squeeze: blib/lib//bla.pm => blib/lib/bla.pm
-        if (@{$calls->{$caller}} || !$OPT{-filter_empty} ) {
+    for my $caller (@$calls) {
+        my $file = file($calls->{ $caller });
+        if (funcs($calls->{$caller}) || !$OPT{-filter_empty} ) {
             print "\n$caller  ($file): \n";
-            for my $targ (sort { $a->line <=> $b->line } @{$calls->{$caller} || []}) {
+	    for my $targ (funcs($calls->{$caller})) {
                 my $n = $targ->name;
                 my $l = $targ->line;
                 if ($targ->is_method) {
@@ -189,12 +195,23 @@ sub array_to_hash {
 
 sub sort {
     my $self = shift;
-    $self->{ "sorted\0" } = [       # prevent clash with function name 
+    $self->{ "sorted\0" } = [ # prevent clash with function name
         map $_->[0],
         sort { $a->[1] cmp $b->[1] or $a->[2] cmp $b->[2] }
         map [ $_, $_ ne '__MAIN__' ? /(.+)::(.+)/ : 'z' x 100 ], keys %$self ];
 }
-    
+   
+sub setup_reportfuncs {
+    my $file = shift;
+    return if ! defined $file;
+    local $^W = 0;
+    unless (my $err = do $file) {
+	die "Can't parse '$file':\n$@\n"    if $@;
+	die "Can't open '$file':\n$!\n"	    if !defined $err;
+	die "Can't run '$file':\nMaybe it didn't return a true value?\n";
+    }
+}
+
 sub Devel::Calltree::Func::file         { shift->{ file } }
 sub Devel::Calltree::Func::line         { shift->{ line } }
 sub Devel::Calltree::Func::name         { shift->{ name } }
@@ -204,6 +221,11 @@ sub Devel::Calltree::Func::is_method    { shift->{ is_method } }
 sub Devel::Calltree::testmode::TIESCALAR { bless \my $var => "Devel::Calltree::testmode" }
 sub Devel::Calltree::testmode::FETCH     { "XXX" }
 sub Devel::Calltree::testmode::STORE     { }
+
+# functions to be used by the --reportfuncs snipplets
+
+sub file    { my $f = ref $_[0]; $f =~ tr#/##s; $f }
+sub funcs   { @{ $_[0] || [] } }
 
 1;
 __END__

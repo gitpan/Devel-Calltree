@@ -5,7 +5,9 @@ MANIFEST
 README
 t/1.t
 t/2.t
+t/3.t
 t/calltree.ref
+t/report_funcs.pl
 lib/Devel/Calltree.pm
 script/calltree
 META.yml                                 Module meta-data (added by MakeMaker)

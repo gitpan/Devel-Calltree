@@ -1,5 +1,10 @@
 Revision history for Perl extension Devel::Calltree.
 
+0.00_3  Fri Apr 16 12:27:32 CEST 2004
+    - --reportfunc switch: you can now pass calltree
+      a file in which the report function is defined
+    - -v/--version switch for calltree
+    
 0.00_2  Sun Feb 15 10:27:47 CET 2004
     - mjd released the original code under the GPL and not
       the Artistic License

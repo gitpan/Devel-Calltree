@@ -2,51 +2,53 @@
 Devel::Calltree::array_to_hash  (XXX): 
 
 Devel::Calltree::find_subcall  (XXX): 
-  method   'name'                                           (68)
-  method   'next'                                           (68)
-  method   'next'                                           (68)
-  method   'name'                                           (68)
-  method   'gv'                                             (70)
-  method   'STASH'                                          (70)
-  method   'NAME'                                           (70)
-  method   'gv'                                             (70)
-  method   'NAME'                                           (70)
-  method   'gv'                                             (75)
-  method   'STASH'                                          (75)
-  method   'NAME'                                           (75)
-  method   'gv'                                             (75)
-  method   'STASH'                                          (75)
-  method   'NAME'                                           (75)
-  function 'B::svref_2object'                               (80)
-  method   'STASH'                                          (80)
-  method   'NAME'                                           (80)
-  method   'name'                                           (96)
-  method   'next'                                           (96)
-  method   'next'                                           (96)
-  method   'name'                                           (96)
-  method   'gv'                                             (96)
-  method   'PV'                                             (96)
+  method   'name'                                           (69)
+  method   'next'                                           (69)
+  method   'next'                                           (69)
+  method   'name'                                           (69)
+  method   'gv'                                             (71)
+  method   'STASH'                                          (71)
+  method   'NAME'                                           (71)
+  method   'gv'                                             (71)
+  method   'NAME'                                           (71)
+  method   'gv'                                             (76)
+  method   'STASH'                                          (76)
+  method   'NAME'                                           (76)
+  method   'gv'                                             (76)
+  method   'STASH'                                          (76)
+  method   'NAME'                                           (76)
+  function 'B::svref_2object'                               (81)
+  method   'STASH'                                          (81)
+  method   'NAME'                                           (81)
+  method   'name'                                           (97)
+  method   'next'                                           (97)
+  method   'next'                                           (97)
+  method   'name'                                           (97)
+  method   'gv'                                             (97)
+  method   'PV'                                             (97)
 
 Devel::Calltree::get_packages  (XXX): 
 
 Devel::Calltree::import  (XXX): 
 
 Devel::Calltree::print_report  (XXX): 
-  method   'line'                                           (116)
-  method   'line'                                           (116)
-  method   'name'                                           (117)
-  method   'line'                                           (118)
-  method   'is_method'                                      (119)
+  method   'line'                                           (117)
+  method   'line'                                           (117)
+  method   'name'                                           (118)
+  method   'line'                                           (119)
+  method   'is_method'                                      (120)
 
 Devel::Calltree::print_report_called  (XXX): 
-  method   'name'                                           (141)
-  method   'name'                                           (154)
-  method   'name'                                           (154)
-  method   'is_method'                                      (155)
+  method   'name'                                           (142)
   method   'name'                                           (155)
-  method   'line'                                           (155)
+  method   'name'                                           (155)
+  method   'is_method'                                      (156)
+  method   'name'                                           (156)
+  method   'line'                                           (156)
 
 Devel::Calltree::remove_excluded  (XXX): 
+
+Devel::Calltree::sort  (XXX): 
 
 Devel::Calltree::Func::file  (XXX): 
 

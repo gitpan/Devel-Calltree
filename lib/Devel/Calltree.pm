@@ -6,7 +6,7 @@ use strict;
 use vars qw($VERSION);
 use B::Utils; 
 
-$VERSION = '0.00_1';
+$VERSION = '0.00_2';
 
 my %OPT;
 my $CURFILE;
@@ -48,11 +48,12 @@ sub INIT {
         for my $call (@CALLS) {
             push @{ $CALLS{$name} }, $call;
         }
-    } 
+    }
+    my $calls = bless \%CALLS => __PACKAGE__;
     if (!$OPT{-iscalled}) {
-        print_report(\%CALLS);
+        $calls->print_report;
     } else {
-        print_report_called(\%CALLS);
+        $calls->print_report_called;
     }
     exit;
 }
@@ -186,6 +187,14 @@ sub array_to_hash {
     return %hash;
 }
 
+sub sort {
+    my $self = shift;
+    $self->{ "sorted\0" } = [       # prevent clash with function name 
+        map $_->[0],
+        sort { $a->[1] cmp $b->[1] or $a->[2] cmp $b->[2] }
+        map [ $_, $_ ne '__MAIN__' ? /(.+)::(.+)/ : 'z' x 100 ], keys %$self ];
+}
+    
 sub Devel::Calltree::Func::file         { shift->{ file } }
 sub Devel::Calltree::Func::line         { shift->{ line } }
 sub Devel::Calltree::Func::name         { shift->{ name } }
@@ -278,10 +287,23 @@ Current maintainer Tassilo von Parseval E<lt>tassilo.parseval@post.rwth-aachen.d
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2004 by Tassilo von Parseval
+Original code copyright (C) 2003 Mark Jason Dominus
 
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.8.2 or,
-at your option, any later version of Perl 5 you may have available.
+Revisions copyright (C) 2004 by Tassilo von Parseval
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+Copyright (C) 2004 by Tassilo von Parseval
 
 =cut
